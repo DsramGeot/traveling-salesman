@@ -17,52 +17,65 @@ public class TSPTWSolver {
         int[] ys = DataParser.ys;
         int[] openTimes = DataParser.open_times;
         int[] closeTimes = DataParser.close_times;
+        Solution bestSolution = new Solution(0, new int[0], new int[0], 0, 0, 0);
 
-        boolean[] isVisited = new boolean[numberOfCities];
-        int[] path = new int[numberOfCities];
-        int pathIndex = 0;
+        int maxStartCityTrial = numberOfCities;
+        for (int i = 0; i < maxStartCityTrial; i++) {
+            boolean[] isVisited = new boolean[numberOfCities];
+            int[] nextCities = new int[numberOfCities];
+            int[] previousCities = new int[numberOfCities]; // To avoid path array's O(n) insert operation, it is O(1)
+                                                            // this
+                                                            // way
+            long totalDistance = 0;
+            long elapsedTime = openTimes[i];
+            int numberOfVisitedCities = 0;
 
-        long totalDistance = 0;
-        long elapsedTime = openTimes[0];
+            int startCity = i;
+            int currentCity = startCity;
+            isVisited[currentCity] = true;
+            previousCities[currentCity] = -1;
+            numberOfVisitedCities++;
 
-        int currentCity = 0;
-        isVisited[currentCity] = true;
-        path[pathIndex++] = 0;
+            while (true) {
+                int nextCity = -1;
+                long shortestLength = Long.MAX_VALUE;
 
-        while (true) {
-            int nextCity = -1;
-            long shortestLength = Long.MAX_VALUE;
+                for (int j = 0; j < numberOfCities; j++) {
+                    if (isVisited[j])
+                        continue;
 
-            for (int i = 1; i < numberOfCities; i++) {
-                if (isVisited[i])
-                    continue;
+                    long distance = getDistance(xs[currentCity], ys[currentCity], xs[j], ys[j]);
 
-                long distance = getDistance(xs[currentCity], ys[currentCity], xs[i], ys[i]);
+                    if (elapsedTime + distance > closeTimes[j])
+                        continue;
 
-                if (elapsedTime + distance > closeTimes[i])
-                    continue;
-
-                if (distance < shortestLength) {
-                    nextCity = i;
-                    shortestLength = distance;
+                    if (distance < shortestLength) {
+                        nextCity = j;
+                        shortestLength = distance;
+                    }
                 }
+                if (nextCity == -1)
+                    break;
+
+                nextCities[currentCity] = nextCity;
+                previousCities[nextCity] = currentCity;
+                numberOfVisitedCities++;
+                totalDistance += shortestLength;
+                elapsedTime = Math.max(elapsedTime + shortestLength, openTimes[nextCity]);
+                isVisited[nextCity] = true;
+                currentCity = nextCity;
             }
-            if (nextCity == -1)
-                break;
 
-            path[pathIndex++] = nextCity;
-            totalDistance += shortestLength;
-            elapsedTime = Math.max(elapsedTime + shortestLength, openTimes[nextCity]);
-            isVisited[nextCity] = true;
-            currentCity = nextCity;
-        }
-
-        if (currentCity != 0) {
-            long temp = getDistance(xs[0], ys[0], xs[currentCity], ys[currentCity]);
+            nextCities[currentCity] = -1;
+            long temp = getDistance(xs[startCity], ys[startCity], xs[currentCity], ys[currentCity]);
             totalDistance += temp;
             elapsedTime += temp;
+            Solution newSolution = new Solution(i, nextCities, previousCities, numberOfVisitedCities, totalDistance,
+                    elapsedTime);
+            bestSolution = newSolution.isBetterSolutionThan(bestSolution) ? newSolution : bestSolution;
         }
-        outputWriter(args[1], path, pathIndex, totalDistance, elapsedTime);
+
+        outputWriter(args[1], bestSolution);
     }
 
     public static long getDistance(int x1, int y1, int x2, int y2) {
@@ -70,20 +83,24 @@ public class TSPTWSolver {
         return (long) Math.floor(sqrt + 0.5);
     }
 
-    public static void outputWriter(String filePath, int[] path, int numberOfVisitedCities,
-            long totalDistance,
-            long totalTime) {
+    public static void outputWriter(String filePath, Solution bestSolution) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
-            writer.print(numberOfVisitedCities + " ");
-            writer.print(totalDistance + " ");
-            writer.println(totalTime);
+            writer.print(bestSolution.numberOfCities + " ");
+            writer.print(bestSolution.totalDistance + " ");
+            writer.println(bestSolution.timeToComplete);
 
-            for (int i = 0; i < numberOfVisitedCities; i++)
-                writer.println(path[i]);
+            int currentCity = bestSolution.firstCity;
+            writer.println(currentCity);
+            while ((currentCity = bestSolution.nextCities[currentCity]) != -1)
+                writer.println(currentCity);
 
         } catch (IOException e) {
             System.out.println("Output file could not be written!");
             System.exit(1);
         }
     }
+
+    public static void insertNoCost(Solution solution) {
+    }
+
 }

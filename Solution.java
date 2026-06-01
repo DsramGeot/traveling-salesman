@@ -1,20 +1,26 @@
 public class Solution {
-    int[] path;
+    int firstCity;
+    int[] nextCities;
+    int[] previousCities;
     int numberOfCities;
-    int totalDistance;
-    int timeToComplete;
-    
-    public Solution(int[] path, int totalDistance, int timeToComplete) {
-        this.path = path;
-        this.numberOfCities = path.length;
+    long totalDistance;
+    long timeToComplete;
+
+    public Solution(int firstCity, int[] nextCities, int[] previousCities, int numberOfCities, long totalDistance,
+            long timeToComplete) {
+        this.firstCity = firstCity;
+        this.nextCities = nextCities;
+        this.previousCities = previousCities;
+        this.numberOfCities = numberOfCities;
         this.totalDistance = totalDistance;
         this.timeToComplete = timeToComplete;
     }
+
     public boolean isBetterSolutionThan(Solution alternative) {
-        if(this.numberOfCities != alternative.numberOfCities) 
+        if (this.numberOfCities != alternative.numberOfCities)
             return (this.numberOfCities > alternative.numberOfCities);
         else {
-            if(this.totalDistance != alternative.totalDistance)
+            if (this.totalDistance != alternative.totalDistance)
                 return (this.totalDistance < alternative.totalDistance);
             else
                 return this.timeToComplete < alternative.timeToComplete;
