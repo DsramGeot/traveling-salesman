@@ -3,6 +3,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 public class TSPTWSolver {
+
+    static int[] xs;
+    static int[] ys;
+    static int[] openTimes;
+    static int[] closeTimes;
+
     public static void main(String[] args) {
 
         if (args.length != 2) {
@@ -12,28 +18,29 @@ public class TSPTWSolver {
 
         int numberOfCities = DataParser.getNodeCount(args[0]);
         DataParser.init_arrays(args[0]);
+        xs = DataParser.xs;
+        ys = DataParser.ys;
+        openTimes = DataParser.open_times;
+        closeTimes = DataParser.close_times;
 
-        int[] xs = DataParser.xs;
-        int[] ys = DataParser.ys;
-        int[] openTimes = DataParser.open_times;
-        int[] closeTimes = DataParser.close_times;
-        Solution bestSolution = new Solution(0, new int[0], new int[0], 0, 0, 0);
+        Solution bestSolution = new Solution(0, new int[0], new int[0], new boolean[0], new long[0], 0, 0, 0);
 
         int maxStartCityTrial = numberOfCities;
         for (int i = 0; i < maxStartCityTrial; i++) {
             boolean[] isVisited = new boolean[numberOfCities];
             int[] nextCities = new int[numberOfCities];
-            int[] previousCities = new int[numberOfCities]; // To avoid path array's O(n) insert operation, it is O(1)
-                                                            // this
-                                                            // way
-            long totalDistance = 0;
-            long elapsedTime = openTimes[i];
-            int numberOfVisitedCities = 0;
+            int[] previousCities = new int[numberOfCities];
+            long[] arrivalTimes = new long[numberOfCities];
 
             int startCity = i;
+            long totalDistance = 0;
+            long elapsedTime = openTimes[startCity];
+            int numberOfVisitedCities = 0;
+
             int currentCity = startCity;
             isVisited[currentCity] = true;
             previousCities[currentCity] = -1;
+            arrivalTimes[currentCity] = 0;
             numberOfVisitedCities++;
 
             while (true) {
@@ -59,6 +66,7 @@ public class TSPTWSolver {
 
                 nextCities[currentCity] = nextCity;
                 previousCities[nextCity] = currentCity;
+                arrivalTimes[nextCity] = elapsedTime + shortestLength;
                 numberOfVisitedCities++;
                 totalDistance += shortestLength;
                 elapsedTime = Math.max(elapsedTime + shortestLength, openTimes[nextCity]);
@@ -70,8 +78,10 @@ public class TSPTWSolver {
             long temp = getDistance(xs[startCity], ys[startCity], xs[currentCity], ys[currentCity]);
             totalDistance += temp;
             elapsedTime += temp;
-            Solution newSolution = new Solution(i, nextCities, previousCities, numberOfVisitedCities, totalDistance,
+            Solution newSolution = new Solution(startCity, nextCities, previousCities, isVisited, arrivalTimes,
+                    numberOfVisitedCities, totalDistance,
                     elapsedTime);
+            insertNoCost(newSolution, numberOfCities);
             bestSolution = newSolution.isBetterSolutionThan(bestSolution) ? newSolution : bestSolution;
         }
 
@@ -100,7 +110,68 @@ public class TSPTWSolver {
         }
     }
 
-    public static void insertNoCost(Solution solution) {
-    }
+    public static void insertNoCost(Solution solution, int numberOfCities) {
 
+        int currentCity = solution.firstCity;
+        while ((currentCity = solution.nextCities[currentCity]) != -1) {
+            long waitingTime = openTimes[currentCity] - solution.arrivalTimes[currentCity];
+            if (waitingTime <= 0)
+                continue;
+            
+            int previousCity = solution.previousCities[currentCity];
+            if(previousCity == -1)
+                continue;
+
+            long departureFromPrevious = Math.max(solution.arrivalTimes[previousCity], openTimes[previousCity]);
+            int bestToInsert = -1;
+            long minimumNewCurrentArrival = Long.MAX_VALUE;
+
+            for (int i = 0; i < numberOfCities; i++) {
+                if (solution.isVisited[i])
+                    continue;
+
+                long arriveToNew = departureFromPrevious
+                        + getDistance(xs[previousCity], ys[previousCity], xs[i], ys[i]);
+                if (arriveToNew > closeTimes[i])
+                    continue;
+
+                long departureFromNew = Math.max(arriveToNew, openTimes[i]);
+                long newArriveToCurrent = departureFromNew
+                        + getDistance(xs[i], ys[i], xs[currentCity], ys[currentCity]);
+
+                if (newArriveToCurrent <= openTimes[currentCity] && newArriveToCurrent < minimumNewCurrentArrival) {
+                    bestToInsert = i;
+                    minimumNewCurrentArrival = newArriveToCurrent;
+                }
+            }
+
+            if (bestToInsert != -1) {
+
+                solution.nextCities[previousCity] = bestToInsert;
+                solution.previousCities[bestToInsert] = previousCity;
+
+                solution.nextCities[bestToInsert] = currentCity;
+                solution.previousCities[currentCity] = bestToInsert;
+
+                long arriveToNew = departureFromPrevious
+                        + getDistance(xs[previousCity], ys[previousCity], xs[bestToInsert], ys[bestToInsert]);
+                solution.arrivalTimes[bestToInsert] = arriveToNew;
+
+                long departureFromNew = Math.max(arriveToNew, openTimes[bestToInsert]);
+                solution.arrivalTimes[currentCity] = departureFromNew
+                        + getDistance(xs[bestToInsert], ys[bestToInsert], xs[currentCity], ys[currentCity]);
+
+                solution.isVisited[bestToInsert] = true;
+                solution.numberOfCities++;
+
+                solution.totalDistance += getDistance(xs[previousCity], ys[previousCity], xs[bestToInsert],
+                        ys[bestToInsert])
+                        + getDistance(xs[bestToInsert], ys[bestToInsert], xs[currentCity], ys[currentCity])
+                        - getDistance(xs[previousCity], ys[previousCity], xs[currentCity], ys[currentCity]);
+
+                currentCity = previousCity;
+
+            }
+        }
+    }
 }
