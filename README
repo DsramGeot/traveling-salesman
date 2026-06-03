@@ -1,0 +1,2 @@
+To compile with parallelization optimizations : gcc -fopenmp -O3 tsptw_solver.c input_parser.c output_writer.c -lm -o tsptw_solver
+To run the code: ./tsptw_solver input.txt output.txt
