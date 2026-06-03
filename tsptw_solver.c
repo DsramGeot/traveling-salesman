@@ -36,21 +36,23 @@ State *createState(State *parent, int city, long time, long totalDistance, int d
 }
 
 // When a path is cancelled
-void releaseState(State *state)
+void releaseState(State *currentState)
 {
-    if (!state)
-        return;
-    int newCount;
+    while (currentState)
+    {
+        int newCount;
 #pragma omp atomic capture
-    {
-        state->refCount--;
-        newCount = state->refCount;
-    }
-    if (newCount == 0)
-    {
-        State *parent = state->parent;
-        free(state);
-        releaseState(parent);
+        {
+            newCount = --currentState->refCount;
+        }
+        if (newCount == 0)
+        {
+            State *parent = currentState->parent;
+            free(currentState);
+            currentState = parent;
+        }
+        else
+            break;
     }
 }
 
