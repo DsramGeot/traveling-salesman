@@ -97,16 +97,14 @@ int main(int argc, char **argv)
     printf("Total number of cities in the input file: %d\n", numberOfNodes);
     initializeArrays(inputFile);
 
-    int **neighbors = (int **)malloc(numberOfNodes * sizeof(int *));
-    long **neighborDistances = (long **)malloc(numberOfNodes * sizeof(long *));
+    int *neighbors = (int *)malloc(numberOfNodes * MAX_NEIGHBORS * sizeof(int));
+    long *neighborDistances = (long *)malloc(numberOfNodes * MAX_NEIGHBORS * sizeof(long));
     int *neighborCounts = (int *)malloc(numberOfNodes * sizeof(int));
 
 // Best neighbor arrays and counts are filled
 #pragma omp parallel for
     for (int i = 0; i < numberOfNodes; i++)
     {
-        neighbors[i] = (int *)malloc(MAX_NEIGHBORS * sizeof(int));
-        neighborDistances[i] = (long *)malloc(MAX_NEIGHBORS * sizeof(long));
         Neighbor bestNeighbors[MAX_NEIGHBORS];
         int count = 0;
 
@@ -144,8 +142,8 @@ int main(int argc, char **argv)
         }
         for (int k = 0; k < count; k++)
         {
-            neighbors[i][k] = bestNeighbors[k].cityIndex;
-            neighborDistances[i][k] = bestNeighbors[k].distance;
+            neighbors[(i * MAX_NEIGHBORS) + k] = bestNeighbors[k].cityIndex;
+            neighborDistances[(i * MAX_NEIGHBORS) + k] = bestNeighbors[k].distance;
         }
 
         neighborCounts[i] = count;
@@ -177,18 +175,22 @@ int main(int argc, char **argv)
         omp_init_lock(&cityLocks[i]);
     }
 
-    for (int depth = 2; depth <= numberOfNodes; depth++)
-    {
-        for (int i = 0; i < numberOfNodes; i++)
-            for (int m = 0; m < MAX_PATHS_PER_CITY; m++)
-                nextBest[i][m] = NULL;
-
-        int isBetterPathFound = 0;
+    int isBetterPathFound = 0;
 
 #pragma omp parallel
+    {
+        int pathIdVisited = 0;
+        int *visitedLocal = (int *)calloc(numberOfNodes, sizeof(int));
+
+        for (int depth = 2; depth <= numberOfNodes; depth++)
         {
-            int pathIdVisited = 0;
-            int *visitedLocal = (int *)calloc(numberOfNodes, sizeof(int));
+#pragma omp single
+            {
+                for (int i = 0; i < numberOfNodes; i++)
+                    for (int m = 0; m < MAX_PATHS_PER_CITY; m++)
+                        nextBest[i][m] = NULL;
+                isBetterPathFound = 0;
+            }
 
 #pragma omp for
             for (int i = 0; i < currentBeamSize; i++)
@@ -206,12 +208,12 @@ int main(int argc, char **argv)
                 int limit = neighborCounts[state->city];
                 for (int k = 0; k < limit; k++)
                 {
-                    int newCity = neighbors[state->city][k];
+                    int newCity = neighbors[(state->city * MAX_NEIGHBORS) + k];
 
                     if (visitedLocal[newCity] == pathIdVisited)
                         continue;
 
-                    long distance = neighborDistances[state->city][k];
+                    long distance = neighborDistances[(state->city * MAX_NEIGHBORS) + k];
                     long arrival = state->time + distance;
 
                     if (arrival <= closeTimes[newCity])
@@ -253,44 +255,34 @@ int main(int argc, char **argv)
                 }
             }
 
-            free(visitedLocal);
-        }
+            if (!isBetterPathFound)
+                break;
 
-        if (!isBetterPathFound)
-        {
-            printf("Beam Search Completed!\n");
-            break;
-        }
-
-        for (int i = 0; i < currentBeamSize; i++)
-            releaseState(currentBeam[i]);
-
-        currentBeamSize = 0;
-        for (int i = 0; i < numberOfNodes; i++)
-        {
-            for (int m = 0; m < MAX_PATHS_PER_CITY; m++)
+#pragma omp single
             {
-                if (nextBest[i][m] != NULL)
+                for (int i = 0; i < currentBeamSize; i++)
+                    releaseState(currentBeam[i]);
+
+                currentBeamSize = 0;
+                for (int i = 0; i < numberOfNodes; i++)
                 {
-                    currentBeam[currentBeamSize++] = nextBest[i][m];
-                    if (nextBest[i][m])
+                    for (int m = 0; m < MAX_PATHS_PER_CITY; m++)
                     {
-#pragma omp atomic
-                        nextBest[i][m]->refCount++;
+                        if (nextBest[i][m] != NULL)
+                        {
+                            currentBeam[currentBeamSize++] = nextBest[i][m];
+                        }
+                        else
+                            break;
                     }
                 }
-                else
-                    break;
+
+                bestDepth = depth;
+                printf("New Maximum Path Length: %d - Number of Paths to Check: %d\n", depth, currentBeamSize);
             }
         }
 
-        for (int i = 0; i < numberOfNodes; i++)
-            for (int m = 0; m < MAX_PATHS_PER_CITY; m++)
-                if (nextBest[i][m] != NULL)
-                    releaseState(nextBest[i][m]);
-
-        bestDepth = depth;
-        printf("New Maximum Path Length: %d - Number of Paths to Check: %d\n", depth, currentBeamSize);
+        free(visitedLocal);
     }
 
     Solution bestSolution;
@@ -352,8 +344,6 @@ int main(int argc, char **argv)
     {
         omp_destroy_lock(&cityLocks[i]);
         free(nextBest[i]);
-        free(neighbors[i]);
-        free(neighborDistances[i]);
     }
     free(cityLocks);
     free(nextBest);
