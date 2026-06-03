@@ -55,13 +55,6 @@ void releaseState(State *currentState)
     }
 }
 
-int findStart(State *s)
-{
-    while (s->parent != NULL)
-        s = s->parent;
-    return s->city;
-}
-
 int isBetterSolutionThan(Solution *current, Solution *alternative)
 {
     if (current->numberOfCities != alternative->numberOfCities)
@@ -295,7 +288,12 @@ int main(int argc, char **argv)
     for (int i = 0; i < currentBeamSize; i++)
     {
         State *state = currentBeam[i];
-        int startCity = findStart(state);
+
+        State *temp = state;
+        while (temp->parent != NULL)
+            temp = temp->parent;
+        int startCity =  temp->city;
+        
         long returnDistance = getDistance(state->city, startCity);
         long totalDistance = state->totalDistance + returnDistance;
         long finalTime = state->time + returnDistance;
