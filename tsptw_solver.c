@@ -42,9 +42,8 @@ void releaseState(State *currentState)
     {
         int newCount;
 #pragma omp atomic capture
-        {
             newCount = --currentState->refCount;
-        }
+        
         if (newCount == 0)
         {
             State *parent = currentState->parent;
