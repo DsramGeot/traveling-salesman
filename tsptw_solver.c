@@ -98,6 +98,7 @@ int main(int argc, char **argv)
     initializeArrays(inputFile);
 
     int **neighbors = (int **)malloc(numberOfNodes * sizeof(int *));
+    long **neighborDistances = (long **)malloc(numberOfNodes * sizeof(long *));
     int *neighborCounts = (int *)malloc(numberOfNodes * sizeof(int));
 
 // Best neighbor arrays and counts are filled
@@ -105,6 +106,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < numberOfNodes; i++)
     {
         neighbors[i] = (int *)malloc(MAX_NEIGHBORS * sizeof(int));
+        neighborDistances[i] = (long *)malloc(MAX_NEIGHBORS * sizeof(long));
         Neighbor bestNeighbors[MAX_NEIGHBORS];
         int count = 0;
 
@@ -141,7 +143,10 @@ int main(int argc, char **argv)
             }
         }
         for (int k = 0; k < count; k++)
+        {
             neighbors[i][k] = bestNeighbors[k].cityIndex;
+            neighborDistances[i][k] = bestNeighbors[k].distance;
+        }
 
         neighborCounts[i] = count;
     }
@@ -182,17 +187,19 @@ int main(int argc, char **argv)
 
 #pragma omp parallel
         {
+            int pathIdVisited = 0;
             int *visitedLocal = (int *)calloc(numberOfNodes, sizeof(int));
 
 #pragma omp for
             for (int i = 0; i < currentBeamSize; i++)
             {
                 State *state = currentBeam[i];
+                pathIdVisited++;
 
                 State *temp = state;
                 while (temp != NULL)
                 {
-                    visitedLocal[temp->city] = 1;
+                    visitedLocal[temp->city] = pathIdVisited;
                     temp = temp->parent;
                 }
 
@@ -201,10 +208,10 @@ int main(int argc, char **argv)
                 {
                     int newCity = neighbors[state->city][k];
 
-                    if (visitedLocal[newCity])
+                    if (visitedLocal[newCity] == pathIdVisited)
                         continue;
 
-                    long distance = getDistance(state->city, newCity);
+                    long distance = neighborDistances[state->city][k];
                     long arrival = state->time + distance;
 
                     if (arrival <= closeTimes[newCity])
@@ -243,12 +250,6 @@ int main(int argc, char **argv)
                             omp_unset_lock(&cityLocks[newCity]);
                         }
                     }
-                }
-                temp = state;
-                while (temp != NULL)
-                {
-                    visitedLocal[temp->city] = 0;
-                    temp = temp->parent;
                 }
             }
 
@@ -352,10 +353,12 @@ int main(int argc, char **argv)
         omp_destroy_lock(&cityLocks[i]);
         free(nextBest[i]);
         free(neighbors[i]);
+        free(neighborDistances[i]);
     }
     free(cityLocks);
     free(nextBest);
     free(neighbors);
+    free(neighborDistances);
     free(neighborCounts);
     freeAll();
 
