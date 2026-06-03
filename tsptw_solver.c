@@ -20,19 +20,19 @@ long getDistance(int i, int j)
 // Creates a new visited city
 State *createState(State *parent, int city, long time, long totalDistance, int depth)
 {
-    State *s = (State *)malloc(sizeof(State));
-    s->parent = parent;
+    State *state = (State *)malloc(sizeof(State));
+    state->parent = parent;
     if (parent)
     {
 #pragma omp atomic
         parent->refCount++;
     }
-    s->city = city;
-    s->time = time;
-    s->totalDistance = totalDistance;
-    s->depth = depth;
-    s->refCount = 0;
-    return s;
+    state->city = city;
+    state->time = time;
+    state->totalDistance = totalDistance;
+    state->depth = depth;
+    state->refCount = 0;
+    return state;
 }
 
 // When a path is cancelled
@@ -42,8 +42,8 @@ void releaseState(State *currentState)
     {
         int newCount;
 #pragma omp atomic capture
-            newCount = --currentState->refCount;
-        
+        newCount = --currentState->refCount;
+
         if (newCount == 0)
         {
             State *parent = currentState->parent;
@@ -66,6 +66,90 @@ int isBetterSolutionThan(Solution *current, Solution *alternative)
         else
             return current->timeToComplete < alternative->timeToComplete;
     }
+}
+
+void optimizeWithNoCostInsertion(int **pathPtr, Solution *solution, int totalNumberOfCities)
+{
+    int *path = *pathPtr;
+    int pathLength = solution->numberOfCities;
+
+    int *isVisited = (int *)calloc(totalNumberOfCities, sizeof(int));
+    for (int i = 0; i < pathLength; i++)
+        isVisited[path[i]] = 1;
+
+    long currentTime = 0;
+
+    for (int i = 0; i < pathLength - 1; i++)
+    {
+        int cityA = path[i];
+        int cityB = path[i + 1];
+        long distanceAB = getDistance(cityA, cityB);
+
+        currentTime = (currentTime > openTimes[cityA]) ? currentTime : openTimes[cityA];
+        long departureFromA = currentTime;
+
+        long arrivalTimeToB = departureFromA + distanceAB;
+        long departureFromB = (arrivalTimeToB > openTimes[cityB]) ? arrivalTimeToB : openTimes[cityB];
+        long waitingTime = departureFromB - arrivalTimeToB;
+
+        if (waitingTime == 0)
+        {
+            currentTime = departureFromB;
+            continue;
+        }
+
+        int cityToInsert = -1;
+        long distanceDifference = 0;
+
+        for (int j = 0; j < totalNumberOfCities; j++)
+        {
+            if (isVisited[j])
+                continue;
+
+            if (departureFromA > closeTimes[j])
+                continue;
+
+            long distanceAC = getDistance(cityA, j);
+            long arrivalTimeToC = departureFromA + distanceAC;
+
+            if (arrivalTimeToC > closeTimes[j])
+                continue;
+
+            long departureFromC = (arrivalTimeToC > openTimes[j]) ? arrivalTimeToC : openTimes[j];
+            long distanceCB = getDistance(j, cityB);
+            long newArrivalTimeToB = departureFromC + distanceCB;
+
+            if (newArrivalTimeToB <= openTimes[cityB])
+            {
+                cityToInsert = j;
+                distanceDifference = distanceAC + distanceCB - distanceAB;
+                break;
+            }
+        }
+
+        if (cityToInsert != -1)
+        {
+            path = (int *)realloc(path, (pathLength + 1) * sizeof(int));
+            for (int k = pathLength; k > i + 1; k--)
+            {
+                path[k] = path[k - 1];
+            }
+            path[i + 1] = cityToInsert;
+            isVisited[cityToInsert] = 1;
+
+            solution->numberOfCities++;
+            solution->totalDistance += distanceDifference;
+            pathLength++;
+            *pathPtr = path;
+
+            i--; 
+            continue;
+        }
+
+        currentTime = departureFromB;
+    }
+
+    free(isVisited);
 }
 
 int main(int argc, char **argv)
@@ -292,8 +376,8 @@ int main(int argc, char **argv)
         State *temp = state;
         while (temp->parent != NULL)
             temp = temp->parent;
-        int startCity =  temp->city;
-        
+        int startCity = temp->city;
+
         long returnDistance = getDistance(state->city, startCity);
         long totalDistance = state->totalDistance + returnDistance;
         long finalTime = state->time + returnDistance;
@@ -327,6 +411,8 @@ int main(int argc, char **argv)
             path[i] = currentCity->city;
             currentCity = currentCity->parent;
         }
+
+        optimizeWithNoCostInsertion(&path, &bestSolution, numberOfNodes);
 
         outputWriter(outputFile, path, bestSolution.numberOfCities, bestSolution.totalDistance, bestSolution.timeToComplete);
         free(path);
