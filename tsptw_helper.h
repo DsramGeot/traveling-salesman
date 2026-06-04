@@ -9,15 +9,15 @@ extern int *closeTimes;
 typedef struct
 {
     int cityIndex;
-    long distance;
+    long long distance;
 } Neighbor;
 
 typedef struct State
 {
     struct State *parent;
     int city;
-    long time;
-    long totalDistance;
+    long long time;
+    long long totalDistance;
     int depth;
     int refCount;
 } State;
@@ -25,8 +25,8 @@ typedef struct State
 typedef struct
 {
     int numberOfCities;
-    long totalDistance;
-    long timeToComplete;
+    long long totalDistance;
+    long long timeToComplete;
 } Solution;
 
 // input_parser.c
@@ -35,6 +35,6 @@ void initializeArrays(const char*);
 void freeAll();
 
 // output_writer.c
-void outputWriter(const char*, int*, int, long, long);
+void outputWriter(const char*, int*, int, long long, long long);
 
 #endif 

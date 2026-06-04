@@ -10,15 +10,15 @@
 #define MAX_NEIGHBORS 800
 #define MAX_PATHS_PER_CITY 5
 
-long getDistance(int i, int j)
+long long getDistance(int i, int j)
 {
-    long dx = xs[i] - xs[j];
-    long dy = ys[i] - ys[j];
-    return (long)floor(sqrt(dx * dx + dy * dy) + 0.5);
+    long long dx = xs[i] - xs[j];
+    long long dy = ys[i] - ys[j];
+    return (long long)floor(sqrt(dx * dx + dy * dy) + 0.5);
 }
 
 // Creates a new visited city
-State *createState(State *parent, int city, long time, long totalDistance, int depth)
+State *createState(State *parent, int city, long long time, long long totalDistance, int depth)
 {
     State *state = (State *)malloc(sizeof(State));
     state->parent = parent;
@@ -77,20 +77,20 @@ void optimizeWithNoCostInsertion(int **pathPtr, Solution *solution, int totalNum
     for (int i = 0; i < pathLength; i++)
         isVisited[path[i]] = 1;
 
-    long currentTime = 0;
+    long long currentTime = 0;
 
     for (int i = 0; i < pathLength - 1; i++)
     {
         int cityA = path[i];
         int cityB = path[i + 1];
-        long distanceAB = getDistance(cityA, cityB);
+        long long distanceAB = getDistance(cityA, cityB);
 
         currentTime = (currentTime > openTimes[cityA]) ? currentTime : openTimes[cityA];
-        long departureFromA = currentTime;
+        long long departureFromA = currentTime;
 
-        long arrivalTimeToB = departureFromA + distanceAB;
-        long departureFromB = (arrivalTimeToB > openTimes[cityB]) ? arrivalTimeToB : openTimes[cityB];
-        long waitingTime = departureFromB - arrivalTimeToB;
+        long long arrivalTimeToB = departureFromA + distanceAB;
+        long long departureFromB = (arrivalTimeToB > openTimes[cityB]) ? arrivalTimeToB : openTimes[cityB];
+        long long waitingTime = departureFromB - arrivalTimeToB;
 
         if (waitingTime == 0)
         {
@@ -99,7 +99,7 @@ void optimizeWithNoCostInsertion(int **pathPtr, Solution *solution, int totalNum
         }
 
         int cityToInsert = -1;
-        long distanceDifference = 0;
+        long long distanceDifference = 0;
 
         for (int j = 0; j < totalNumberOfCities; j++)
         {
@@ -109,15 +109,15 @@ void optimizeWithNoCostInsertion(int **pathPtr, Solution *solution, int totalNum
             if (departureFromA > closeTimes[j])
                 continue;
 
-            long distanceAC = getDistance(cityA, j);
-            long arrivalTimeToC = departureFromA + distanceAC;
+            long long distanceAC = getDistance(cityA, j);
+            long long arrivalTimeToC = departureFromA + distanceAC;
 
             if (arrivalTimeToC > closeTimes[j])
                 continue;
 
-            long departureFromC = (arrivalTimeToC > openTimes[j]) ? arrivalTimeToC : openTimes[j];
-            long distanceCB = getDistance(j, cityB);
-            long newArrivalTimeToB = departureFromC + distanceCB;
+            long long departureFromC = (arrivalTimeToC > openTimes[j]) ? arrivalTimeToC : openTimes[j];
+            long long distanceCB = getDistance(j, cityB);
+            long long newArrivalTimeToB = departureFromC + distanceCB;
 
             if (newArrivalTimeToB <= openTimes[cityB])
             {
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     initializeArrays(inputFile);
 
     int *neighbors = (int *)malloc(numberOfNodes * MAX_NEIGHBORS * sizeof(int));
-    long *neighborDistances = (long *)malloc(numberOfNodes * MAX_NEIGHBORS * sizeof(long));
+    long long *neighborDistances = (long long *)malloc(numberOfNodes * MAX_NEIGHBORS * sizeof(long long));
     int *neighborCounts = (int *)malloc(numberOfNodes * sizeof(int));
 
 // Best neighbor arrays and counts are filled
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
         {
             if (i == j)
                 continue;
-            long distance = getDistance(i, j);
+            long long distance = getDistance(i, j);
 
             if (count < MAX_NEIGHBORS)
             {
@@ -290,12 +290,12 @@ int main(int argc, char **argv)
                     if (visitedLocal[newCity] == pathIdVisited)
                         continue;
 
-                    long distance = neighborDistances[(state->city * MAX_NEIGHBORS) + k];
-                    long arrival = state->time + distance;
+                    long long distance = neighborDistances[(state->city * MAX_NEIGHBORS) + k];
+                    long long arrival = state->time + distance;
 
                     if (arrival <= closeTimes[newCity])
                     {
-                        long departure = (arrival > openTimes[newCity]) ? arrival : openTimes[newCity];
+                        long long departure = (arrival > openTimes[newCity]) ? arrival : openTimes[newCity];
 
                         State **topPaths = nextBest[newCity];
                         if (topPaths[MAX_PATHS_PER_CITY - 1] == NULL || departure < topPaths[MAX_PATHS_PER_CITY - 1]->time)
@@ -364,8 +364,8 @@ int main(int argc, char **argv)
 
     Solution bestSolution;
     bestSolution.numberOfCities = -1;
-    bestSolution.timeToComplete = LONG_MAX;
-    bestSolution.totalDistance = LONG_MAX;
+    bestSolution.timeToComplete = LLONG_MAX;
+    bestSolution.totalDistance = LLONG_MAX;
 
     State *bestState = NULL;
 
@@ -378,9 +378,9 @@ int main(int argc, char **argv)
             temp = temp->parent;
         int startCity = temp->city;
 
-        long returnDistance = getDistance(state->city, startCity);
-        long totalDistance = state->totalDistance + returnDistance;
-        long finalTime = state->time + returnDistance;
+        long long returnDistance = getDistance(state->city, startCity);
+        long long totalDistance = state->totalDistance + returnDistance;
+        long long finalTime = state->time + returnDistance;
 
         Solution currentSolution;
         currentSolution.numberOfCities = bestDepth;
@@ -400,8 +400,8 @@ int main(int argc, char **argv)
         double elapsedTime = end - start;
         printf("\n");
         printf("Maximum Path Length: %d\n", bestSolution.numberOfCities);
-        printf("Total Distance : %ld\n", bestSolution.totalDistance);
-        printf("Completion Time: %ld\n", bestSolution.timeToComplete);
+        printf("Total Distance : %lld\n", bestSolution.totalDistance);
+        printf("Completion Time: %lld\n", bestSolution.timeToComplete);
         printf("Elapsed time to find the path: %.2f seconds\n", elapsedTime);
 
         int *path = (int *)malloc(bestDepth * sizeof(int));
